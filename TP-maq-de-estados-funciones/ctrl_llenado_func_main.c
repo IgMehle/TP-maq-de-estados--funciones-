@@ -51,6 +51,7 @@ int main()
         if(kbhit())
         {
             opc=getch();        //leo la tecla presionada
+            fflush(stdin);
             interprete(opc, &sens);     //cambio valores de sensores segun corresponda
         }
         switch(estado)      //direccionamiento de funciones de estado
@@ -85,8 +86,11 @@ void interprete(char opc,sensores_t* sensores)
     switch(opc)
     {
     case 'Q':
-        if(sensores->s1) sensores->s0=1;    //bloqueo condicion fisica PROHIBIDA
-        printf("\nTanque superior LLENO");
+        if(sensores->s1)
+        {
+            sensores->s0=1;    //bloqueo condicion fisica PROHIBIDA
+            printf("\nTanque superior LLENO");
+        }
         break;
     case 'W':
         sensores->s0=0;
@@ -101,8 +105,11 @@ void interprete(char opc,sensores_t* sensores)
         printf("\nTanque superior VACIO");
         break;
     case 'T':
-        if(sensores->s3) sensores->s2=1;    //bloqueo condicion fisica PROHIBIDA
-        printf("\nTanque reserva LLENO");
+        if(sensores->s3)
+        {
+            sensores->s2=1;    //bloqueo condicion fisica PROHIBIDA
+            printf("\nTanque reserva LLENO");
+        }
         break;
     case 'Y':
         sensores->s2=0;
@@ -114,10 +121,12 @@ void interprete(char opc,sensores_t* sensores)
     case 'I':
         sensores->s3=0;
         sensores->s2=0;     //condición fisica tanque vacio en caso de que s2=1
+        sensores->bot=0;    //corta el boton manual si reserva esta vacia
         printf("\nTanque reserva VACIO");
         break;
     case 'O':
-        sensores->bot=1;
+        if(sensores->s3)        //en este caso solo se puede accionar el manual si hay agua en reserva
+            sensores->bot=1;
         break;
     case 'P':
         sensores->bot=0;
@@ -131,15 +140,15 @@ char inicio(sensores_t* sensores)
 {
     if(sensores->cambio)    //imprime una unica vez hasta que cambie de estado
     {
-        motor(0);
+        motor(0);              //imprime motor off
         sensores->cambio=0;
     }
-    if(sensores->bot)
+    if(sensores->bot)       //boton manual activado
     {
         sensores->cambio=1;
         return MANUAL;
     }
-    if(!(sensores->s1)&&(sensores->s3))
+    if(!(sensores->s1)&&(sensores->s3))    //si hay agua en tanque reserva y se vacia el superior
     {
         sensores->cambio=1;
         return AUTOMATICO;
@@ -151,15 +160,15 @@ char automatico(sensores_t* sensores)
 {
     if(sensores->cambio)    //imprime una unica vez hasta que cambie de estado
     {
-        motor(1);
+        motor(1);           //imprime motor on (automatico)
         sensores->cambio=0;
     }
-    if(!(sensores->s3))
+    if(!(sensores->s3))     //si se vacia el tanque de reserva
     {
         sensores->cambio=1;
         return PROTECCION;
     }
-    if(sensores->s0)
+    if(sensores->s0)        //si se llena el tanque superior
     {
         sensores->cambio=1;
         return INICIO;
@@ -171,15 +180,15 @@ char proteccion(sensores_t* sensores)
 {
     if(sensores->cambio)    //imprime una unica vez hasta que cambie de estado
     {
-        motor(4);
+        motor(4);           //imprime motor off (proteccion)
         sensores->cambio=0;
     }
-    if((sensores->s3)&&(sensores->bot))
+    if(sensores->bot)       //si se activa el manual estando en proteccion
     {
         sensores->cambio=1;
         return MANUAL_DET;
     }
-    if(sensores->s2)
+    if(sensores->s2)        //si se llena el tanque de reserva
     {
         sensores->cambio=1;
         return AUTOMATICO;
@@ -191,10 +200,15 @@ char manual_detencion(sensores_t* sensores)
 {
     if(sensores->cambio)    //imprime una unica vez hasta que cambie de estado
     {
-        if(!(sensores->s3)) motor(3);
+        motor(3);           //imprime motor on (en proteccion)
         sensores->cambio=0;
     }
-    if(sensores->bot)
+    if(!(sensores->bot))    //si corto el llenado manual
+    {
+        sensores->cambio=1;
+        return PROTECCION;
+    }
+    if(!(sensores->s3))     //si se vacia la reserva
     {
         sensores->cambio=1;
         return PROTECCION;
@@ -206,10 +220,15 @@ char manual(sensores_t* sensores)
 {
     if(sensores->cambio)    //imprime una unica vez hasta que cambie de estado
     {
-        if(!(sensores->s3)) motor(2);
+        motor(2);           //imprime motor on (manual)
         sensores->cambio=0;
     }
-    if(!(sensores->bot))
+    if(!(sensores->bot))    //si corto el llenado manual
+    {
+        sensores->cambio=1;
+        return INICIO;
+    }
+    if(!(sensores->s3))     //si se vacia la reserva
     {
         sensores->cambio=1;
         return INICIO;
@@ -219,10 +238,10 @@ char manual(sensores_t* sensores)
 
 void motor(char on)
 {
+    if(on==0) printf("\nMOTOR OFF");
     if(on==1) printf("\nMOTOR ON (automatico)");
     if(on==2) printf("\nMOTOR ON (manual)");
     if(on==3) printf("\nMOTOR ON (manual en proteccion)");
     if(on==4) printf("\nMOTOR OFF (proteccion)");
-    else printf("\nMOTOR OFF");
 }
 
